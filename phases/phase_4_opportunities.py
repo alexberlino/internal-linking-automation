@@ -1,127 +1,244 @@
-# phases/phase_4_opportunities.py
-
 import re
-from typing import List, Dict
+from typing import Set, Tuple, Optional, List, Dict, Any
+
 import pandas as pd
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
 
 
-GENERIC_WORDS = {
-    "software",
-    "solution",
-    "platform",
-    "tool",
-    "system",
-    "for",
-    "and",
-    "with",
-    "the",
-    "a",
-    "an",
-}
+# --------------------------------------------------
+# Config
+# --------------------------------------------------
+
+MIN_SENTENCE_WORDS = 6
+PAGE_SIMILARITY_FLOOR = 0.50
+SENTENCE_SIMILARITY_FLOOR = 0.60
 
 
-# -------------------------------------------------------------------
+
+
+# --------------------------------------------------
+# Model (lazy-loaded)
+# --------------------------------------------------
+
+_MODEL: Optional[SentenceTransformer] = None
+
+
+def get_model() -> SentenceTransformer:
+    global _MODEL
+    if _MODEL is None:
+        _MODEL = SentenceTransformer("all-MiniLM-L6-v2")
+    return _MODEL
+
+
+# --------------------------------------------------
 # Helpers
-# -------------------------------------------------------------------
+# --------------------------------------------------
 
-def extract_primary_keyword(title: str, h1: str) -> str:
-    """
-    Extracts a conservative primary keyword from title + H1.
-    Deterministic, SEO-safe.
-    """
-
-    text = f"{title} {h1}".lower()
-    text = re.sub(r"[^a-z0-9\s]", " ", text)
-
-    words = [
-        w for w in text.split()
-        if w not in GENERIC_WORDS and len(w) > 2
-    ]
-
-    if not words:
-        return ""
-
-    # Take first 2–3 meaningful words
-    return " ".join(words[:3])
+def first_existing_column(df: pd.DataFrame, candidates: Tuple[str, ...]) -> str:
+    for c in candidates:
+        if c in df.columns:
+            return c
+    raise ValueError(f"None of these columns exist: {candidates}")
 
 
-def already_linked(
-    source_url: str,
-    target_url: str,
-    raw_links_list: List[Dict],
-) -> bool:
-    return any(
-        l["source"] == source_url and l["dest"] == target_url
-        for l in raw_links_list
-    )
+def split_into_sentences(text: Any) -> List[str]:
+    if not isinstance(text, str) or pd.isna(text):
+        return []
+    sentences = re.split(r"(?<=[.!?])\s+", text)
+    return [s.strip() for s in sentences if len(s.split()) >= MIN_SENTENCE_WORDS]
 
 
-# -------------------------------------------------------------------
-# Phase 4
-# -------------------------------------------------------------------
+def detect_language_from_url(url: str) -> str:
+    if "/de/" in url or url.rstrip("/").endswith("/de"):
+        return "de"
+    return "en"
 
-def run_phase_4_opportunities(
+
+def is_homepage(url: str) -> bool:
+    return url.rstrip("/").count("/") <= 2
+
+
+def get_best_anchor(target_row: pd.Series) -> Optional[str]:
+    anchor = str(target_row.get("best_anchor_text", "")).strip()
+    if not anchor or anchor.upper() == "N/A":
+        return None
+    return anchor
+
+
+def build_topic_tokens(target_row: pd.Series) -> List[str]:
+    text = " ".join([
+        str(target_row.get("title", "")),
+        str(target_row.get("h1", "")),
+        str(target_row.get("meta_description", "")),
+        str(target_row.get("best_anchor_text", "")),
+    ]).lower()
+
+    return list(set(re.findall(r"[a-z0-9]{4,}", text)))
+
+
+# --------------------------------------------------
+# Target embeddings (Tier A only)
+# --------------------------------------------------
+
+def build_target_embeddings(audited_df: pd.DataFrame) -> Dict[str, Any]:
+    url_col = first_existing_column(audited_df, ("url", "target_url", "page_url"))
+    tier_col = first_existing_column(audited_df, ("priority_tier", "tier"))
+
+    model = get_model()
+    vectors: Dict[str, Any] = {}
+
+    for _, row in audited_df.iterrows():
+        if str(row[tier_col]).strip().upper() != "A":
+            continue
+
+        intent_text = " ".join([
+            str(row.get("title", "")),
+            str(row.get("h1", "")),
+            str(row.get("meta_description", "")),
+        ]).strip() or str(row[url_col])
+
+        vectors[row[url_col]] = model.encode(intent_text)
+
+    return vectors
+
+
+# --------------------------------------------------
+# Phase 4 core
+# --------------------------------------------------
+
+def find_internal_link_opportunities(
     blog_df: pd.DataFrame,
-    meta_df: pd.DataFrame,
-    raw_links_list: List[Dict],
-    min_priority: tuple = ("A", "B"),
+    audited_df: pd.DataFrame,
+    existing_links: Set[Tuple[str, str]],
 ) -> pd.DataFrame:
-    """
-    Finds internal linking opportunities from blog content to target pages.
-    """
 
-    opportunities = []
-
-    # ---------------------------------------------------------------
-    # Prepare targets
-    # ---------------------------------------------------------------
-    targets = meta_df[meta_df["importance"].isin(min_priority)].copy()
-
-    targets["primary_keyword"] = targets.apply(
-        lambda r: extract_primary_keyword(r["title"], r["h1"]),
-        axis=1,
+    blog_url_col = first_existing_column(blog_df, ("url", "source_url"))
+    blog_content_col = first_existing_column(blog_df, ("content", "text", "body"))
+    traffic_col = next(
+        (c for c in ("non_branded_traffic", "traffic", "sessions") if c in blog_df.columns),
+        None,
     )
+    target_url_col = first_existing_column(audited_df, ("url", "target_url"))
 
-    targets = targets[targets["primary_keyword"] != ""]
+    model = get_model()
+    opportunities: List[Dict[str, Any]] = []
 
-    # ---------------------------------------------------------------
-    # Iterate sources → targets
-    # ---------------------------------------------------------------
-    for _, source in blog_df.iterrows():
-        source_url = source["url"]
-        content = source["content"].lower()
+    page_embedding_cache: Dict[str, Any] = {}
+    sentence_embedding_cache: Dict[str, Any] = {}
 
-        for _, target in targets.iterrows():
-            target_url = target["url"]
-            keyword = target["primary_keyword"]
+    target_vectors = build_target_embeddings(audited_df)
 
-            # Skip if link already exists
-            if already_linked(source_url, target_url, raw_links_list):
+    for target_url, target_vector in target_vectors.items():
+
+        target_row = audited_df[audited_df[target_url_col] == target_url].iloc[0]
+
+        # --- HARD RULES ---
+        best_anchor = get_best_anchor(target_row)
+        if not best_anchor:
+            continue
+
+        if is_homepage(target_url):
+            continue
+
+        target_lang = detect_language_from_url(target_url)
+        topic_tokens = build_topic_tokens(target_row)
+
+        for _, blog in blog_df.iterrows():
+            source_url = blog[blog_url_col]
+
+            if source_url == target_url or (source_url, target_url) in existing_links:
                 continue
 
-            # Keyword match
-            if keyword in content:
-                opportunities.append({
-                    "source_url": source_url,
-                    "target_url": target_url,
-                    "suggested_anchor": keyword,
-                    "target_importance": target["importance"],
-                    "source_traffic": source.get("non_branded_traffic", 0),
-                })
+            if detect_language_from_url(source_url) != target_lang:
+                continue
 
-    # ---------------------------------------------------------------
-    # Output
-    # ---------------------------------------------------------------
-    if not opportunities:
-        return pd.DataFrame()
+            content = str(blog[blog_content_col])
+            if not content or content == "nan":
+                continue
 
-    df = pd.DataFrame(opportunities)
+            source_traffic = (
+                int(blog[traffic_col])
+                if traffic_col and not pd.isna(blog[traffic_col])
+                else 0
+            )
 
-    # Prioritisation: target importance → source traffic
-    df["importance_rank"] = df["target_importance"].map({"A": 1, "B": 2, "C": 3})
-    df = df.sort_values(
-        by=["importance_rank", "source_traffic"],
-        ascending=[True, False],
+            sentences = split_into_sentences(content)
+            if not sentences:
+                continue
+
+            if source_url not in page_embedding_cache:
+                page_embedding_cache[source_url] = model.encode(content)
+
+            page_sim = cosine_similarity(
+                [page_embedding_cache[source_url]],
+                [target_vector],
+            )[0][0]
+
+            if page_sim < PAGE_SIMILARITY_FLOOR:
+                continue
+
+            best_score = 0.0
+
+            for sentence in sentences:
+                if sentence not in sentence_embedding_cache:
+                    sentence_embedding_cache[sentence] = model.encode(sentence)
+
+                sim = cosine_similarity(
+                    [sentence_embedding_cache[sentence]],
+                    [target_vector],
+                )[0][0]
+
+                if sim >= SENTENCE_SIMILARITY_FLOOR:
+                    sentence_lc = sentence.lower()
+                    if not any(tok in sentence_lc for tok in topic_tokens):
+                        continue
+                    best_score = max(best_score, sim)
+
+            if best_score == 0.0:
+                continue
+
+            opportunities.append({
+                "source_url": source_url,
+                "target_url": target_url,
+                "suggested_anchor": best_anchor,
+                "source_non_branded_traffic": source_traffic,
+                "confidence": round(best_score, 3),
+            })
+
+    return pd.DataFrame(opportunities)
+
+
+# --------------------------------------------------
+# Entry point
+# --------------------------------------------------
+
+def run_phase_4_opportunities(*args, **kwargs) -> pd.DataFrame:
+    blog_df = kwargs.get("blog_df")
+    audited_df = kwargs.get("audited_df") or kwargs.get("meta_df")
+    raw_links_list = kwargs.get("raw_links_list")
+
+    if blog_df is None and len(args) > 0:
+        blog_df = args[0]
+    if audited_df is None and len(args) > 1:
+        audited_df = args[1]
+    if raw_links_list is None and len(args) > 2:
+        raw_links_list = args[2]
+
+    if blog_df is None or audited_df is None or raw_links_list is None:
+        raise ValueError("Missing required inputs.")
+
+    assert "best_anchor_text" in audited_df.columns, "Missing best_anchor_text column"
+
+    existing_links: Set[Tuple[str, str]] = set()
+    for link in raw_links_list:
+        src = str(link.get("source") or link.get("source_url") or "").rstrip("/")
+        dst = str(link.get("dest") or link.get("target_url") or "").rstrip("/")
+        if src and dst:
+            existing_links.add((src, dst))
+
+    return find_internal_link_opportunities(
+        blog_df=blog_df,
+        audited_df=audited_df,
+        existing_links=existing_links,
     )
-
-    return df.drop(columns=["importance_rank"])
