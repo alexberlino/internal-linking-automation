@@ -15,3 +15,4 @@ venv/
 # IDE
 .vscode/
 .idea/
+data/input/page_metadata *.csv
