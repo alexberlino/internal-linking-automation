@@ -16,3 +16,8 @@ venv/
 .vscode/
 .idea/
 data/input/page_metadata *.csv
+
+
+# Client data (inputs & outputs)
+data/input/**
+data/output/**
