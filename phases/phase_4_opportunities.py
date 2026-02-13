@@ -1,4 +1,5 @@
 import re
+from urllib.parse import urlparse
 from typing import Set, Tuple, Optional, List, Dict, Any
 
 import pandas as pd
@@ -13,8 +14,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 MIN_SENTENCE_WORDS = 6
 PAGE_SIMILARITY_FLOOR = 0.50
 SENTENCE_SIMILARITY_FLOOR = 0.60
-
-
 
 
 # --------------------------------------------------
@@ -42,6 +41,12 @@ def first_existing_column(df: pd.DataFrame, candidates: Tuple[str, ...]) -> str:
     raise ValueError(f"None of these columns exist: {candidates}")
 
 
+def normalize_url(u: Any) -> str:
+    if not isinstance(u, str):
+        u = "" if pd.isna(u) else str(u)
+    return u.strip().rstrip("/")
+
+
 def split_into_sentences(text: Any) -> List[str]:
     if not isinstance(text, str) or pd.isna(text):
         return []
@@ -50,12 +55,34 @@ def split_into_sentences(text: Any) -> List[str]:
 
 
 def detect_language_from_url(url: str) -> str:
-    if "/de/" in url or url.rstrip("/").endswith("/de"):
+    """
+    3-bucket language detection:
+      - 'de'   for /de/... or .../de
+      - 'en'   for /en/... or .../en
+      - 'none' for URLs without a language subfolder
+    """
+    try:
+        path = urlparse(url).path.lower()
+    except Exception:
+        path = (url or "").lower()
+
+    p = path.strip("/")
+
+    if not p:
+        return "none"
+
+    first = p.split("/", 1)[0]
+
+    if first == "de" or p == "de":
         return "de"
-    return "en"
+    if first == "en" or p == "en":
+        return "en"
+
+    return "none"
 
 
 def is_homepage(url: str) -> bool:
+    # keeps your original heuristic
     return url.rstrip("/").count("/") <= 2
 
 
@@ -98,7 +125,7 @@ def build_target_embeddings(audited_df: pd.DataFrame) -> Dict[str, Any]:
             str(row.get("meta_description", "")),
         ]).strip() or str(row[url_col])
 
-        vectors[row[url_col]] = model.encode(intent_text)
+        vectors[normalize_url(row[url_col])] = model.encode(intent_text)
 
     return vectors
 
@@ -129,9 +156,18 @@ def find_internal_link_opportunities(
 
     target_vectors = build_target_embeddings(audited_df)
 
+    # Build a fast lookup for target rows (normalized)
+    audited_lookup = {
+        normalize_url(row[target_url_col]): row
+        for _, row in audited_df.iterrows()
+        if isinstance(row.get(target_url_col), str) or not pd.isna(row.get(target_url_col))
+    }
+
     for target_url, target_vector in target_vectors.items():
 
-        target_row = audited_df[audited_df[target_url_col] == target_url].iloc[0]
+        target_row = audited_lookup.get(target_url)
+        if target_row is None:
+            continue
 
         # --- HARD RULES ---
         best_anchor = get_best_anchor(target_row)
@@ -145,16 +181,26 @@ def find_internal_link_opportunities(
         topic_tokens = build_topic_tokens(target_row)
 
         for _, blog in blog_df.iterrows():
-            source_url = blog[blog_url_col]
+            source_url = normalize_url(blog[blog_url_col])
 
+            if not source_url:
+                continue
+
+            # avoid self + duplicates
             if source_url == target_url or (source_url, target_url) in existing_links:
                 continue
 
-            if detect_language_from_url(source_url) != target_lang:
+            source_lang = detect_language_from_url(source_url)
+
+            # Strict rule: only link within same language bucket
+            # - de ↔ de
+            # - en ↔ en
+            # - none ↔ none
+            if source_lang != target_lang:
                 continue
 
             content = str(blog[blog_content_col])
-            if not content or content == "nan":
+            if not content or content.lower() == "nan":
                 continue
 
             source_traffic = (
@@ -232,8 +278,8 @@ def run_phase_4_opportunities(*args, **kwargs) -> pd.DataFrame:
 
     existing_links: Set[Tuple[str, str]] = set()
     for link in raw_links_list:
-        src = str(link.get("source") or link.get("source_url") or "").rstrip("/")
-        dst = str(link.get("dest") or link.get("target_url") or "").rstrip("/")
+        src = normalize_url(link.get("source") or link.get("source_url"))
+        dst = normalize_url(link.get("dest") or link.get("target_url"))
         if src and dst:
             existing_links.add((src, dst))
 

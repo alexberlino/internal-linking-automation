@@ -36,6 +36,18 @@ def main():
     raw_links_list = load_internal_links(internal_links_file)
 
     # ---------------------------------------------------------------
+    # REQUIRED BY PHASE 4 – FALLBACK ANCHOR TEXT
+    # ---------------------------------------------------------------
+    if "best_anchor_text" not in meta_df.columns:
+        meta_df["best_anchor_text"] = (
+            meta_df["h1"].fillna("").astype(str).str.strip()
+        )
+        empty = meta_df["best_anchor_text"].eq("")
+        meta_df.loc[empty, "best_anchor_text"] = (
+            meta_df.loc[empty, "title"].fillna("").astype(str).str.strip()
+        )
+
+    # ---------------------------------------------------------------
     # PREPARE METADATA FOR AUDIT
     # ---------------------------------------------------------------
     meta_df["priority_tier"] = meta_df["importance"]
