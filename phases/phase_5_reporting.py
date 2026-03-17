@@ -22,153 +22,134 @@ import pandas as pd
 
 COMMERCIAL_ANCHOR_RULES = [
     # --------------------------------------------------
-    # VERY SPECIFIC COMMERCIAL INTENTS (FIRST)
+    # NEW COMMERCIAL PAGE: IDP
     # --------------------------------------------------
     {
-        "kw": "woocommerce hosting",
-        "pattern": r"\bwoocommerce\s+hosting\b",
-        "target_url": "https://raidboxes.io/solutions/woocommerce-hosting/",
-    },
-    {
-        "kw": "green wordpress hosting",
-        "pattern": r"\b(green|grünes|klimafreundliches|nachhaltiges)\s+wordpress\s+hosting\b",
-        "target_url": "https://raidboxes.io/platform/green-wordpress-hosting/",
-    },
-    {
-        "kw": "high traffic wordpress hosting",
-        "pattern": r"\b(high[-\s]?traffic|enterprise)\b.*\bwordpress\s+hosting\b|\bwordpress\s+hosting\b.*\b(high[-\s]?traffic|enterprise)\b",
-        "target_url": "https://raidboxes.io/solutions/high-traffic-wordpress-hosting/",
-    },
-    {
-        "kw": "managed cloud hosting",
-        "pattern": r"\bmanaged\s+cloud\s+hosting\b",
-        "target_url": "https://raidboxes.io/solutions/wordpress-managed-cloud-hosting/",
+        "kw": "intelligent document processing",
+        "pattern": (
+            r"\bintelligent\s+document\s+processing\b"
+            r"|\bidp\b"
+            r"|\bidp\s+software\b"
+            r"|\bdocument\s+processing\b"
+            r"|\bdocument\s+automation\b"
+        ),
+        "target_url": "https://www.workist.com/en/intelligent-document-processing/",
     },
 
     # --------------------------------------------------
-    # PLATFORM / FEATURE COMMERCIAL PAGES
+    # HOW IT WORKS / AI AGENT
     # --------------------------------------------------
     {
-        "kw": "wordpress support",
-        "pattern": r"\bwordpress\s+support\b|\bfragen\s+im\s+wordpress\s+support\b",
-        "target_url": "https://raidboxes.io/platform/wordpress-support/",
-    },
-    {
-        "kw": "wordpress security",
-        "pattern": r"\bwordpress\s+(security|sicherheit)\b|\bsicher(es|heit)\b.*\bwordpress\b",
-        "target_url": "https://raidboxes.io/platform/wordpress-security/",
-    },
-    {
-        "kw": "wordpress performance",
-        "pattern": r"\bwordpress\s+performance\b|\bschnell(es|e)\s+wordpress\s+hosting\b",
-        "target_url": "https://raidboxes.io/platform/wordpress-performance/",
-    },
-    {
-        "kw": "wordpress management",
-        "pattern": r"\bwordpress\s+management\b|\bwebsites?\s+verwalten\b",
-        "target_url": "https://raidboxes.io/platform/wordpress-management/",
+        "kw": "sales process automation",
+        "pattern": (
+            r"\bsales\s+process\s+automation\b"
+            r"|\bsales\s+automation\b"
+            r"|\bback\s*office\s+automation\b"
+            r"|\bsales\s+backoffice\b"
+            r"|\bsales\s+back\s*office\b"
+            r"|\bsales\s+ai\b"
+            r"|\boperational\s+efficiency\b"
+        ),
+        "target_url": "https://www.workist.com/en/how-it-works",
     },
 
     # --------------------------------------------------
-    # MIGRATION / PRICING / TOOLS
+    # DOCUMENT PROCESSING & AUTOMATION
     # --------------------------------------------------
     {
-        "kw": "wordpress migration",
-        "pattern": r"\bwordpress\s+migration\b|\bwordpress\s+umzug\b|\bumzugsservice\b",
-        "target_url": "https://raidboxes.io/free-wordpress-migration/",
-    },
-    {
-        "kw": "wordpress hosting preise",
-        "pattern": r"\bwordpress\s+hosting\b.*\b(preise|pricing|tarife|kosten)\b|\b(preise|pricing|tarife|kosten)\b.*\bwordpress\s+hosting\b",
-        "target_url": "https://raidboxes.io/wordpress-hosting-pricing/",
-    },
-    {
-        "kw": "wordpress speed test",
-        "pattern": r"\bwordpress\s+speed\s+test\b|\bwie\s+schnell\s+lädt\b.*\bwordpress\b",
-        "target_url": "https://raidboxes.io/wordpress-speed-test/",
-    },
-    {
-        "kw": "performance test",
-        "pattern": r"\bperformance[-\s]*test\b|\blangsame\s+website\b|\bslow\s+website\b",
-        "target_url": "https://raidboxes.io/performance-test/",
+        "kw": "automated document processing",
+        "pattern": (
+            r"\bautomated\s+document\s+processing\b"
+            r"|\bai\s+document\s+processing\b"
+            r"|\bdocument\s+processing\s+automation\b"
+            r"|\bdocument\s+workflow\b"
+        ),
+        "target_url": "https://www.workist.com/en/automated-document-processing/",
     },
 
     # --------------------------------------------------
-    # CUSTOMER SEGMENTS
+    # ORDER ENTRY
     # --------------------------------------------------
     {
-        "kw": "wordpress hosting für agenturen",
-        "pattern": r"\bwordpress\s+hosting\b.*\b(agenturen|freelancer)\b|\b(agenturen|freelancer)\b.*\bwordpress\s+hosting\b",
-        "target_url": "https://raidboxes.io/customers/website-creators/",
-    },
-    {
-        "kw": "wordpress hosting für unternehmen",
-        "pattern": r"\bwordpress\s+hosting\b.*\b(unternehmen|shops)\b|\b(unternehmen|shops)\b.*\bwordpress\s+hosting\b",
-        "target_url": "https://raidboxes.io/customers/website-owners/",
+        "kw": "order entry software",
+        "pattern": (
+            r"\border\s+entry\b"
+            r"|\border\s+entry\s+software\b"
+            r"|\border\s+entry\s+automation\b"
+            r"|\border\s+entry\s+system\b"
+            r"|\bsales\s+order\s+entry\b"
+            r"|\bsales\s+order\s+entry\s+software\b"
+            r"|\bautomated\s+sales\s+order\s+entry(?:\s+software)?\b"
+            r"|\bautomated\s+order\s+entry\b"
+            r"|\bdigital\s+order\s+entry\b"
+        ),
+        "target_url": "https://www.workist.com/en/order-entry-software/",
     },
 
     # --------------------------------------------------
-    # DOMAINS / EMAIL / PARTNER
+    # ORDER MANAGEMENT
     # --------------------------------------------------
     {
-        "kw": "domains",
-        "pattern": r"\bdomain(s)?\b|\bdomain\s+kaufen\b",
-        "target_url": "https://raidboxes.io/domains/",
-    },
-    {
-        "kw": "email hosting",
-        "pattern": r"\b(e-?mail|email)\s+hosting\b",
-        "target_url": "https://raidboxes.io/email-hosting/",
-    },
-    {
-        "kw": "affiliate programm",
-        "pattern": r"\baffiliate\s+(programm|program)\b",
-        "target_url": "https://raidboxes.io/affiliate/",
+        "kw": "order management software",
+        "pattern": (
+            r"\border\s+management\b"
+            r"|\border\s+management\s+software\b"
+            r"|\border\s+management\s+system\b"
+            r"|\border\s+processing\b"
+            r"|\border\s+processing\s+software\b"
+            r"|\border\s+management\s+automation\b"
+            r"|\border\s+management\s+platform\b"
+            r"|\border\s+management\s+process\b"
+        ),
+        "target_url": "https://www.workist.com/en/order-management-software/",
     },
 
     # --------------------------------------------------
-    # COMPETITOR ALTERNATIVES
+    # DOCUMENT MANAGEMENT
     # --------------------------------------------------
     {
-        "kw": "ionos alternative",
-        "pattern": r"\bionos\s+alternative\b",
-        "target_url": "https://raidboxes.io/ionos-alternative/",
-    },
-    {
-        "kw": "strato alternative",
-        "pattern": r"\bstrato\s+alternative\b",
-        "target_url": "https://raidboxes.io/strato-alternative/",
-    },
-
-    # --------------------------------------------------
-    # GENERIC COMMERCIAL (LAST BEFORE BRAND)
-    # --------------------------------------------------
-    {
-        "kw": "managed wordpress hosting",
-        "pattern": r"\bmanaged\s+wordpress\s+hosting\b",
-        "target_url": "https://raidboxes.io/solutions/managed-wordpress-hosting/",
-    },
-    {
-        "kw": "wordpress hosting",
-        "pattern": r"\bwordpress\s+hosting\b",
-        "target_url": "https://raidboxes.io/solutions/managed-wordpress-hosting/",
+        "kw": "document management software",
+        "pattern": (
+            r"\bdocument\s+management\b"
+            r"|\bdocument\s+management\s+software\b"
+            r"|\belectronic\s+document\s+management\b"
+            r"|\belectronic\s+document\s+management\s+software\b"
+            r"|\bdigital\s+document\s+management\b"
+            r"|\bdigital\s+document\s+management\s+software\b"
+        ),
+        "target_url": "https://www.workist.com/en/document-management-software/",
     },
 
     # --------------------------------------------------
-    # BRAND ONLY (ABSOLUTELY LAST)
+    # OCR
+    # --------------------------------------------------
+    {
+        "kw": "ai ocr",
+        "pattern": (
+            r"\bai\s+based\s+ocr\s+solution\b"
+            r"|\bai\s+ocr\b"
+            r"|\bocr\b"
+            r"|\bocr\s+software\b"
+            r"|\boptical\s+character\s+recognition\b"
+        ),
+        "target_url": "https://www.workist.com/en/ai-ocr-software/",
+    },
+
+    # --------------------------------------------------
+    # BRAND ONLY
     # --------------------------------------------------
     {
         "kw": "brand",
-        "pattern": r"^\s*raidboxes(?:®|™)?(?:\.io)?\s*$",
-        "target_url": "https://raidboxes.io/",
+        "pattern": r"^\s*workist(?:®|™)?(?:\.com)?\s*$",
+        "target_url": "https://www.workist.com/",
     },
 ]
 
 
 _DATE_ONLY_PATTERNS = [
-    r"^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}$",  # 01/01/2019, 01.01.2019
-    r"^\d{4}-\d{2}-\d{2}$",               # 2019-01-01
-    r"^\d{4}$",                           # 2019
+    r"^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}$",
+    r"^\d{4}-\d{2}-\d{2}$",
+    r"^\d{4}$",
 ]
 
 
@@ -197,19 +178,16 @@ def is_article_title_like_anchor(anchor: str) -> bool:
 
     a_lc = a.lower()
 
-    # Starts with a number + classic listicle words
     if re.match(
         r"^\s*\d{1,3}\s+(best|beste|top|tipps|tips|gründe|reasons|maßnahmen|measures|steps|schritte)\b",
         a_lc,
     ):
         return True
 
-    # Headline-ish keywords + long anchor (likely title)
     if re.search(r"\b(vergleich|test|guide|anleitung|tutorial|checkliste|trends|liste|ranking)\b", a_lc):
         if len(a) >= 35:
             return True
 
-    # Very long anchors are almost always titles/CTA lines
     if len(a) >= 90:
         return True
 
@@ -225,8 +203,10 @@ def is_blog_url(url: str) -> bool:
         return False
     path = urlparse(url).path.lower()
     return (
-        path == "/blog" or path.startswith("/blog/")
-        or path == "/en/blog" or path.startswith("/en/blog/")
+        path == "/blog"
+        or path.startswith("/blog/")
+        or path == "/en/blog"
+        or path.startswith("/en/blog/")
     )
 
 
@@ -241,9 +221,9 @@ def align_destination_language(target_url: str, source_url: str) -> str:
     """
     Ensure suggested destination matches the language bucket of the SOURCE.
 
-    Raidboxes setup assumed:
+    Workist setup assumed:
     - English pages live under /en/...
-    - German/default pages are root (no /de/ folder).
+    - Default/root pages are non-EN
     """
     if not isinstance(target_url, str) or not target_url:
         return target_url
@@ -257,7 +237,7 @@ def align_destination_language(target_url: str, source_url: str) -> str:
             path = "/en" + (path if path.startswith("/") else "/" + path)
     else:
         if path.lower().startswith("/en/"):
-            path = path[3:]  # remove leading '/en'
+            path = path[3:]
             if not path.startswith("/"):
                 path = "/" + path
         elif path.lower() == "/en":
@@ -285,12 +265,22 @@ def is_strong_match(anchor: str, keyword: str) -> bool:
     k = norm(keyword)
     if not a or not k:
         return False
+
     if a == k:
         return True
+
     if a.startswith(k + " ") or a.endswith(" " + k):
         return True
-    if k in a and len(a.split()) <= 6:
+
+    if k in a and len(a.split()) <= 10:
         return True
+
+    anchor_tokens = set(re.findall(r"[a-z0-9]+", a))
+    keyword_tokens = set(re.findall(r"[a-z0-9]+", k))
+
+    if keyword_tokens and len(keyword_tokens.intersection(anchor_tokens)) >= max(2, len(keyword_tokens) - 1):
+        return True
+
     return False
 
 
@@ -302,15 +292,11 @@ def build_anchor_optimization_report(
     raw_links_list: List[Dict],
     audited_df: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Commercial anchor -> commercial destination (ONLY when currently linking to a blog URL).
-
-    Output columns are designed for actionability; we DO NOT suggest changing anchor text.
-    """
+    """Commercial anchor -> commercial destination (ONLY when currently linking to a blog URL)."""
     links_df = pd.DataFrame(raw_links_list)
     if links_df.empty:
         return pd.DataFrame()
 
-    # Normalize required fields
     for col in ("source", "dest", "anchor"):
         if col not in links_df.columns:
             return pd.DataFrame()
@@ -326,38 +312,31 @@ def build_anchor_optimization_report(
         dst = r["dest"].strip()
         anchor = r["anchor"].strip()
 
-        # Ignore empty anchors
         if not anchor:
             continue
 
-        # Ignore anchors that are purely dates (e.g. 01/01/2019)
         if is_date_only_anchor(anchor):
             continue
 
-        # Ignore anchors that look like article titles/listicles (e.g. "13 beste ...")
         if is_article_title_like_anchor(anchor):
             continue
 
-        # Only care about cases where CURRENT destination is a blog URL
         if not is_blog_url(dst):
             continue
 
         anchor_lc = norm(anchor)
 
-        # Find best commercial rule match (specific -> general order)
         matched_rule = None
         for rule in COMMERCIAL_ANCHOR_RULES:
             if re.search(rule["pattern"], anchor_lc, flags=re.IGNORECASE):
-                if is_strong_match(anchor, rule["kw"]):
-                    matched_rule = rule
-                    break
+                matched_rule = rule
+                break
 
         if matched_rule is None:
             continue
 
         suggested = align_destination_language(matched_rule["target_url"], src)
 
-        # If suggestion resolves to the same destination (after removing query/fragments), skip
         if normalize_url_no_query(dst) == normalize_url_no_query(suggested):
             continue
 
@@ -365,7 +344,7 @@ def build_anchor_optimization_report(
             "page_to_edit": src,
             "destination_page": dst,
             "current_anchor": anchor,
-            "suggested_anchor": anchor,  # keep anchor unchanged
+            "suggested_anchor": anchor,
             "suggested_destination": suggested,
             "rule_triggered": f"commercial_mapping: {matched_rule['kw']}",
         })
@@ -375,7 +354,6 @@ def build_anchor_optimization_report(
 
     out = pd.DataFrame(rows)
 
-    # De-dupe identical recommendations
     out = out.drop_duplicates(
         subset=["page_to_edit", "destination_page", "current_anchor", "suggested_destination"]
     )
@@ -396,29 +374,17 @@ def build_page_summary_report(
     Page summary with meaningful before / after.
     Only Tier A & B.
     """
-    # --------------------------------------------------
-    # FILTER: only A & B
-    # --------------------------------------------------
     report = audited_df[
         audited_df["priority_tier"].isin(["A", "B"])
     ].copy()
 
-    # --------------------------------------------------
-    # BEFORE: based on gap_status
-    # --------------------------------------------------
     report["before"] = report["gap_status"].map({
         "Medium: Poor Anchors": "Uses generic or non-descriptive anchor text",
         "High: Under-Linked": "Receives insufficient internal links",
     }).fillna("No major internal linking issues detected")
 
-    # --------------------------------------------------
-    # AFTER: default
-    # --------------------------------------------------
     report["after"] = "No change required"
 
-    # --------------------------------------------------
-    # APPLY OPPORTUNITY IMPACT (targets) - Tab 2 behavior (new links)
-    # --------------------------------------------------
     if opportunities_df is not None and not opportunities_df.empty:
         affected_targets = set(opportunities_df["target_url"])
         report.loc[
@@ -428,9 +394,6 @@ def build_page_summary_report(
             "Adding new internal links from relevant blog content will strengthen internal discoverability and support priority pages"
         )
 
-    # --------------------------------------------------
-    # APPLY ANCHOR OPTIMIZATION IMPACT (source pages) - Tab 3 behavior (reroute commercial anchors)
-    # --------------------------------------------------
     if anchor_optimization_df is not None and not anchor_optimization_df.empty:
         affected_pages = set(anchor_optimization_df["page_to_edit"])
         report.loc[
@@ -509,7 +472,6 @@ def export_internal_linking_report(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # BUILD DEPENDENT TABLES FIRST
     anchor_optimization_df = build_anchor_optimization_report(
         raw_links_list,
         audited_df,

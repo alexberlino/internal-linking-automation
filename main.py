@@ -1,5 +1,6 @@
 # main.py
 
+from os import path
 from pathlib import Path
 import time
 
@@ -10,7 +11,7 @@ from phases.phase_2_links_loader import load_internal_links
 
 # Phase logic
 from phases.phase_3_audit import audit_internal_links
-from phases.phase_4_opportunities import run_phase_4_opportunities
+from phases.phase_4_opportunities import is_real_blog_article_url, run_phase_4_opportunities
 from phases.phase_5_reporting import export_internal_linking_report
 
 
@@ -32,6 +33,36 @@ def main():
     # PHASE 2 – LOAD INPUTS
     # ---------------------------------------------------------------
     blog_df = load_blog_content(blog_content_file)
+
+    blog_df = blog_df[
+    blog_df["url"].apply(is_real_blog_article_url)
+    ].copy()
+
+    print("Final blog sources:", len(blog_df))
+
+    from urllib.parse import urlparse
+
+    def classify_source_url(url: str) -> str:
+        if not isinstance(url, str) or not url:
+         return "empty"
+
+        parsed = urlparse(url)
+        path = parsed.path.lower()
+        query = parsed.query.lower()
+
+        if path in {"/blog", "/en/blog"}:
+            return "blog_index"
+
+        if (path.startswith("/blog/") or path.startswith("/en/blog/")) and not query:
+            return "blog_article"
+        if path.startswith("/blog") or path.startswith("/en/blog"):
+            return "blog_listing_or_filtered"
+
+        return "non_blog"
+
+    blog_df["_source_type"] = blog_df["url"].apply(classify_source_url)
+    print(blog_df["_source_type"].value_counts(dropna=False))
+
     meta_df = load_page_metadata(page_metadata_file)
     raw_links_list = load_internal_links(internal_links_file)
 

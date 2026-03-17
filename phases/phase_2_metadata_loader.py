@@ -5,11 +5,9 @@ import pandas as pd
 from typing import Union
 
 
-
 REQUIRED_COLUMNS = {
     "url",
     "title",
-    "h1",
     "meta_description",
     "importance",
 }
@@ -29,9 +27,11 @@ def load_page_metadata(
     Required columns:
     - url
     - title
-    - h1
     - meta_description
     - importance (A / B / C)
+
+    Optional columns:
+    - h1
     """
 
     path = Path(path)
@@ -52,6 +52,10 @@ def load_page_metadata(
     missing = REQUIRED_COLUMNS - set(df.columns)
     if missing:
         raise ValueError(f"Missing required columns: {missing}")
+
+    # Optional fallback
+    if "h1" not in df.columns:
+        df["h1"] = ""
 
     # Clean URL
     df["url"] = df["url"].astype(str).str.strip()

@@ -13,7 +13,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 MIN_SENTENCE_WORDS = 6
 PAGE_SIMILARITY_FLOOR = 0.50
-SENTENCE_SIMILARITY_FLOOR = 0.60
+SENTENCE_SIMILARITY_FLOOR = 0.64
 
 
 # --------------------------------------------------
@@ -84,6 +84,32 @@ def detect_language_from_url(url: str) -> str:
 def is_homepage(url: str) -> bool:
     # keeps your original heuristic
     return url.rstrip("/").count("/") <= 2
+
+def is_real_blog_article_url(url: str) -> bool:
+    if not isinstance(url, str) or not url:
+        return False
+
+    parsed = urlparse(url)
+    path = parsed.path.lower()
+    query = parsed.query.lower()
+
+    # must be a real blog article path
+    if not (path.startswith("/blog/") or path.startswith("/en/blog/")):
+        return False
+
+    # exclude blog index pages
+    if path in {"/blog", "/en/blog"}:
+        return False
+
+    # exclude pagination / filter query URLs
+    if query:
+        return False
+
+    # optional extra safeguard
+    if "/authors/" in path:
+        return False
+
+    return True
 
 
 def get_best_anchor(target_row: pd.Series) -> Optional[str]:
@@ -185,6 +211,8 @@ def find_internal_link_opportunities(
 
             if not source_url:
                 continue
+            if not is_real_blog_article_url(source_url):
+                continue
 
             # avoid self + duplicates
             if source_url == target_url or (source_url, target_url) in existing_links:
@@ -197,7 +225,8 @@ def find_internal_link_opportunities(
             # - en ↔ en
             # - none ↔ none
             if source_lang != target_lang:
-                continue
+                if not (source_lang == "none" and target_lang == "en"):
+                    continue
 
             content = str(blog[blog_content_col])
             if not content or content.lower() == "nan":
@@ -237,7 +266,9 @@ def find_internal_link_opportunities(
 
                 if sim >= SENTENCE_SIMILARITY_FLOOR:
                     sentence_lc = sentence.lower()
-                    if not any(tok in sentence_lc for tok in topic_tokens):
+                    sentence_tokens = set(re.findall(r"[a-z0-9]{4,}", sentence_lc))
+                    token_overlap = len(sentence_tokens.intersection(set(topic_tokens)))
+                    if token_overlap < 2:
                         continue
                     best_score = max(best_score, sim)
 
@@ -252,8 +283,18 @@ def find_internal_link_opportunities(
                 "confidence": round(best_score, 3),
             })
 
-    return pd.DataFrame(opportunities)
+    out = pd.DataFrame(opportunities)
 
+    if out.empty:
+        return out
+
+    out = out.sort_values(
+    by=["source_url", "confidence", "source_non_branded_traffic"],
+    ascending=[True, False, False],
+    )
+    # keep only top 3 suggestions per source page
+    out = out.groupby("source_url", as_index=False).head(3)
+    return out
 
 # --------------------------------------------------
 # Entry point
