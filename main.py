@@ -11,7 +11,8 @@ from phases.phase_2_links_loader import load_internal_links
 
 # Phase logic
 from phases.phase_3_audit import audit_internal_links
-from phases.phase_4_opportunities import is_real_blog_article_url, run_phase_4_opportunities
+from phases.phase_4_opportunities import is_valid_source_url, run_phase_4_opportunities
+
 from phases.phase_5_reporting import export_internal_linking_report
 
 
@@ -35,7 +36,8 @@ def main():
     blog_df = load_blog_content(blog_content_file)
 
     blog_df = blog_df[
-    blog_df["url"].apply(is_real_blog_article_url)
+    blog_df["url"].apply(is_valid_source_url)
+
     ].copy()
 
     print("Final blog sources:", len(blog_df))
@@ -44,19 +46,20 @@ def main():
 
     def classify_source_url(url: str) -> str:
         if not isinstance(url, str) or not url:
-         return "empty"
+            return "empty"
 
         parsed = urlparse(url)
         path = parsed.path.lower()
         query = parsed.query.lower()
 
-        if path in {"/blog", "/en/blog"}:
+        if path in {"/blog", "/en/blog", "/learn", "/en/learn"}:
             return "blog_index"
 
-        if (path.startswith("/blog/") or path.startswith("/en/blog/")) and not query:
-            return "blog_article"
-        if path.startswith("/blog") or path.startswith("/en/blog"):
+        if "/category/" in path or "/tag/" in path or "/author/" in path:
             return "blog_listing_or_filtered"
+
+        if (path.startswith("/learn/") or path.startswith("/blog/")) and not query:
+            return "blog_article"
 
         return "non_blog"
 
@@ -105,6 +108,9 @@ def main():
         raw_links_list=raw_links_list,
     )
 
+    print(opportunities_df.columns.tolist())
+    print(opportunities_df.head(5).to_string())
+
     # ---------------------------------------------------------------
     # PHASE 5 – EXPORT REPORT
     # ---------------------------------------------------------------
@@ -118,6 +124,18 @@ def main():
     runtime = round(time.time() - start_time, 2)
     print(f"Internal linking analysis completed in {runtime}s")
 
+    print(f"Blog articles loaded: {len(blog_df)}")
+    print(f"Target pages (all tiers): {len(audited_df)}")
+    print(f"Opportunities found: {len(opportunities_df)}")
+  
+    if not opportunities_df.empty and "target_url" in opportunities_df.columns:
+        print(opportunities_df["target_url"].value_counts().head(10))
+    print("Sample blog URLs:")
+    print(blog_df["url"].head(5).tolist())
+
+    print("Sample target URLs:")
+    print(meta_df["url"].head(5).tolist())
 
 if __name__ == "__main__":
     main()
+

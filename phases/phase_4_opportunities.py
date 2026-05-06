@@ -7,13 +7,17 @@ from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
 
-# --------------------------------------------------
+# ------------------------------------------------
 # Config
 # --------------------------------------------------
 
 MIN_SENTENCE_WORDS = 6
-PAGE_SIMILARITY_FLOOR = 0.50
-SENTENCE_SIMILARITY_FLOOR = 0.64
+PAGE_SIMILARITY_FLOOR = 0.35   # was 0.35; lowered after observing real
+                                # blog->commercial pairs scored 0.30-0.34
+                                # on legitimate matches with MiniLM.
+SENTENCE_SIMILARITY_FLOOR = 0.5
+
+TIER_LINK_CAP = {"A": 8, "B": 4, "C": 2}
 
 
 # --------------------------------------------------
@@ -55,12 +59,6 @@ def split_into_sentences(text: Any) -> List[str]:
 
 
 def detect_language_from_url(url: str) -> str:
-    """
-    3-bucket language detection:
-      - 'de'   for /de/... or .../de
-      - 'en'   for /en/... or .../en
-      - 'none' for URLs without a language subfolder
-    """
     try:
         path = urlparse(url).path.lower()
     except Exception:
@@ -82,10 +80,10 @@ def detect_language_from_url(url: str) -> str:
 
 
 def is_homepage(url: str) -> bool:
-    # keeps your original heuristic
     return url.rstrip("/").count("/") <= 2
 
-def is_real_blog_article_url(url: str) -> bool:
+
+def is_valid_source_url(url: str) -> bool:
     if not isinstance(url, str) or not url:
         return False
 
@@ -93,20 +91,16 @@ def is_real_blog_article_url(url: str) -> bool:
     path = parsed.path.lower()
     query = parsed.query.lower()
 
-    # must be a real blog article path
-    if not (path.startswith("/blog/") or path.startswith("/en/blog/")):
+    # exclude index/root
+    if path in {"", "/"}:
         return False
 
-    # exclude blog index pages
-    if path in {"/blog", "/en/blog"}:
+    # exclude category, tag, author, pagination
+    if "/category/" in path or "/tag/" in path or "/author/" in path:
         return False
 
-    # exclude pagination / filter query URLs
+    # exclude query strings
     if query:
-        return False
-
-    # optional extra safeguard
-    if "/authors/" in path:
         return False
 
     return True
@@ -131,20 +125,16 @@ def build_topic_tokens(target_row: pd.Series) -> List[str]:
 
 
 # --------------------------------------------------
-# Target embeddings (Tier A only)
+# Target embeddings (ALL tiers)
 # --------------------------------------------------
 
 def build_target_embeddings(audited_df: pd.DataFrame) -> Dict[str, Any]:
     url_col = first_existing_column(audited_df, ("url", "target_url", "page_url"))
-    tier_col = first_existing_column(audited_df, ("priority_tier", "tier"))
 
     model = get_model()
     vectors: Dict[str, Any] = {}
 
     for _, row in audited_df.iterrows():
-        if str(row[tier_col]).strip().upper() != "A":
-            continue
-
         intent_text = " ".join([
             str(row.get("title", "")),
             str(row.get("h1", "")),
@@ -157,7 +147,7 @@ def build_target_embeddings(audited_df: pd.DataFrame) -> Dict[str, Any]:
 
 
 # --------------------------------------------------
-# Phase 4 core
+# Phase 4 core — DIAGNOSTIC VERSION
 # --------------------------------------------------
 
 def find_internal_link_opportunities(
@@ -173,20 +163,24 @@ def find_internal_link_opportunities(
         None,
     )
     target_url_col = first_existing_column(audited_df, ("url", "target_url"))
+    tier_col = first_existing_column(audited_df, ("priority_tier", "tier"))
 
     model = get_model()
     opportunities: List[Dict[str, Any]] = []
-
     page_embedding_cache: Dict[str, Any] = {}
     sentence_embedding_cache: Dict[str, Any] = {}
 
     target_vectors = build_target_embeddings(audited_df)
 
-    # Build a fast lookup for target rows (normalized)
     audited_lookup = {
         normalize_url(row[target_url_col]): row
         for _, row in audited_df.iterrows()
         if isinstance(row.get(target_url_col), str) or not pd.isna(row.get(target_url_col))
+    }
+
+    tier_map = {
+        normalize_url(row[target_url_col]): str(row[tier_col]).strip().upper()
+        for _, row in audited_df.iterrows()
     }
 
     for target_url, target_vector in target_vectors.items():
@@ -195,7 +189,6 @@ def find_internal_link_opportunities(
         if target_row is None:
             continue
 
-        # --- HARD RULES ---
         best_anchor = get_best_anchor(target_row)
         if not best_anchor:
             continue
@@ -211,19 +204,12 @@ def find_internal_link_opportunities(
 
             if not source_url:
                 continue
-            if not is_real_blog_article_url(source_url):
+            if not is_valid_source_url(source_url):
                 continue
-
-            # avoid self + duplicates
             if source_url == target_url or (source_url, target_url) in existing_links:
                 continue
 
             source_lang = detect_language_from_url(source_url)
-
-            # Strict rule: only link within same language bucket
-            # - de ↔ de
-            # - en ↔ en
-            # - none ↔ none
             if source_lang != target_lang:
                 if not (source_lang == "none" and target_lang == "en"):
                     continue
@@ -260,7 +246,7 @@ def find_internal_link_opportunities(
                     sentence_embedding_cache[sentence] = model.encode(sentence)
 
                 sim = cosine_similarity(
-                    [sentence_embedding_cache[sentence]],
+                [sentence_embedding_cache[sentence]],
                     [target_vector],
                 )[0][0]
 
@@ -268,7 +254,7 @@ def find_internal_link_opportunities(
                     sentence_lc = sentence.lower()
                     sentence_tokens = set(re.findall(r"[a-z0-9]{4,}", sentence_lc))
                     token_overlap = len(sentence_tokens.intersection(set(topic_tokens)))
-                    if token_overlap < 2:
+                    if token_overlap < 1:
                         continue
                     best_score = max(best_score, sim)
 
@@ -288,13 +274,24 @@ def find_internal_link_opportunities(
     if out.empty:
         return out
 
+    out["_tier"] = out["target_url"].map(tier_map).fillna("C")
+
     out = out.sort_values(
-    by=["source_url", "confidence", "source_non_branded_traffic"],
-    ascending=[True, False, False],
+        by=["target_url", "confidence", "source_non_branded_traffic"],
+        ascending=[True, False, False],
     )
-    # keep only top 3 suggestions per source page
-    out = out.groupby("source_url", as_index=False).head(3)
+
+    out = (
+        out.groupby("target_url", group_keys=False)
+        .apply(lambda g: g.head(TIER_LINK_CAP.get(g["_tier"].iloc[0], 2)))
+        .reset_index(drop=True)
+    )
+
+    out = out.drop(columns=["_tier"])
+
     return out
+
+
 
 # --------------------------------------------------
 # Entry point

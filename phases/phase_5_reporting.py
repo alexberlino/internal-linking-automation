@@ -21,118 +21,265 @@ import pandas as pd
 # - Ignore anchors that look like article titles/listicles (e.g. "13 beste ...").
 
 COMMERCIAL_ANCHOR_RULES = [
-    # --------------------------------------------------
-    # NEW COMMERCIAL PAGE: IDP
+
+    # ------------------------------------------------
+    # HOMEPAGE / BRAND
     # --------------------------------------------------
     {
-        "kw": "intelligent document processing",
+        "kw": "nationwide process servers",
         "pattern": (
-            r"\bintelligent\s+document\s+processing\b"
-            r"|\bidp\b"
-            r"|\bidp\s+software\b"
-            r"|\bdocument\s+processing\b"
-            r"|\bdocument\s+automation\b"
+            r"\bnationwide\s+process\s+servers?\b"
+            r"|\bnationwide\s+legal\s+service\b"
+            r"|\bproof(?:serve)?\b"
         ),
-        "target_url": "https://www.workist.com/en/intelligent-document-processing/",
+        "target_url": "https://www.proofserve.com/",
     },
 
     # --------------------------------------------------
-    # HOW IT WORKS / AI AGENT
+    # HOW IT WORKS
     # --------------------------------------------------
     {
-        "kw": "sales process automation",
+        "kw": "how process serving works",
         "pattern": (
-            r"\bsales\s+process\s+automation\b"
-            r"|\bsales\s+automation\b"
-            r"|\bback\s*office\s+automation\b"
-            r"|\bsales\s+backoffice\b"
-            r"|\bsales\s+back\s*office\b"
-            r"|\bsales\s+ai\b"
-            r"|\boperational\s+efficiency\b"
+            r"\bhow\s+process\s+serving\s+works\b"
+            r"|\bai.powered\s+process\s+serving\b"
+            r"|\bautofill\s+ai\b"
+            r"|\bproof\s+autofill\b"
+            r"|\baddress\s+verification\b"
+            r"|\bgps\s+tracking\b"
+            r"|\bautomated\s+affidavits?\b"
+            r"|\bserve\s+in\s+60\s+seconds\b"
+            r"|\bdigital\s+service\s+of\s+process\b"
+            r"|\bservice\s+of\s+process\s+platform\b"
+            r"|\bprocess\s+serving\s+platform\b"
+            r"|\bprocess\s+serving\s+software\b"
+            r"|\bprocess\s+serving\s+app\b"
+            r"|\bprocess\s+server\s+app\b"
+            r"|\blegal\s+document\s+delivery\s+platform\b"
         ),
-        "target_url": "https://www.workist.com/en/how-it-works",
+        "target_url": "https://www.proofserve.com/how-it-works",
     },
 
     # --------------------------------------------------
-    # DOCUMENT PROCESSING & AUTOMATION
+    # PRICING
     # --------------------------------------------------
     {
-        "kw": "automated document processing",
+        "kw": "process server pricing",
         "pattern": (
-            r"\bautomated\s+document\s+processing\b"
-            r"|\bai\s+document\s+processing\b"
-            r"|\bdocument\s+processing\s+automation\b"
-            r"|\bdocument\s+workflow\b"
+            r"\bprocess\s+server\s+pricing\b"
+            r"|\bprocess\s+serv(?:ing|er)\s+cost(?:s)?\b"
+            r"|\bprocess\s+serv(?:ing|er)\s+rates?\b"
+            r"|\bhow\s+much\s+(?:does\s+)?(?:a\s+)?process\s+server\s+cost\b"
+            r"|\bhow\s+much\s+do\s+process\s+servers\s+charge\b"
+            r"|\btransparent\s+(?:legal\s+)?pricing\b"
+            r"|\bafordable\s+process\s+serv(?:ing|er)\b"
+            r"|\bprocess\s+server\s+fees?\b"
         ),
-        "target_url": "https://www.workist.com/en/automated-document-processing/",
+        "target_url": "https://www.proofserve.com/pricing",
     },
 
     # --------------------------------------------------
-    # ORDER ENTRY
+    # SKIP TRACING
     # --------------------------------------------------
     {
-        "kw": "order entry software",
+        "kw": "skip tracing",
         "pattern": (
-            r"\border\s+entry\b"
-            r"|\border\s+entry\s+software\b"
-            r"|\border\s+entry\s+automation\b"
-            r"|\border\s+entry\s+system\b"
-            r"|\bsales\s+order\s+entry\b"
-            r"|\bsales\s+order\s+entry\s+software\b"
-            r"|\bautomated\s+sales\s+order\s+entry(?:\s+software)?\b"
-            r"|\bautomated\s+order\s+entry\b"
-            r"|\bdigital\s+order\s+entry\b"
+            r"\bskip\s+trac(?:ing|e)\b"
+            r"|\bskip\s+trac(?:ing|e)\s+services?\b"
+            r"|\blocate\s+(?:a\s+)?(?:person|people|individual|defendant|debtor|respondent)\b"
+            r"|\bfind\s+(?:a\s+)?(?:hard.to.find\s+)?(?:person|people|individual|defendant|debtor)\b"
+            r"|\bpeople\s+search\b"
+            r"|\bopen.source\s+intel(?:ligence)?\b"
+            r"|\bdefendant\s+location\b"
+            r"|\beverify\s+(?:an?\s+)?address\b"
+            r"|\baddress\s+lookup\b"
         ),
-        "target_url": "https://www.workist.com/en/order-entry-software/",
+        "target_url": "https://www.proofserve.com/skip-tracing",
+    },
+
+    # ------------------------------------------------
+    # FOR INDIVIDUALS / SERVE LEGAL PAPERS
+    # --------------------------------------------------
+    {
+        "kw": "serve legal papers",
+        "pattern": (
+            r"\bserve\s+legal\s+(?:papers?|documents?)\b"
+            r"|\bserv(?:ing|e)\s+(?:court\s+)?papers?\b"
+            r"|\bserv(?:ing|e)\s+(?:legal\s+)?documents?\b"
+            r"|\bserv(?:ing|e)\s+(?:a\s+)?sumons\b"
+            r"|\bserv(?:ing|e)\s+(?:a\s+)?subpoena\b"
+            r"|\bserv(?:ing|e)\s+(?:a\s+)?complaint\b"
+            r"|\bserv(?:ing|e)\s+(?:a\s+)?defendant\b"
+            r"|\bdiy\s+process\s+serv(?:ing|ice)\b"
+            r"|\bself.service\s+process\s+serv(?:ing|ice)\b"
+            r"|\bafordable\s+(?:legal\s+)?document\s+serv(?:ing|ice)\b"
+            r"|\bserve\s+papers?\s+(?:fast|quickly|same.day)\b"
+        ),
+        "target_url": "https://www.proofserve.com/for-individuals",
     },
 
     # --------------------------------------------------
-    # ORDER MANAGEMENT
+    # FOR LAW FIRMS
     # --------------------------------------------------
     {
-        "kw": "order management software",
+        "kw": "process serving for law firms",
         "pattern": (
-            r"\border\s+management\b"
-            r"|\border\s+management\s+software\b"
-            r"|\border\s+management\s+system\b"
-            r"|\border\s+processing\b"
-            r"|\border\s+processing\s+software\b"
-            r"|\border\s+management\s+automation\b"
-            r"|\border\s+management\s+platform\b"
-            r"|\border\s+management\s+process\b"
+            r"\blaw\s+firm\s+process\s+serv(?:ing|ice)\b"
+            r"|\bprocess\s+serv(?:ing|ice)\s+(?:for\s+)?law\s+firms?\b"
+            r"|\blitigation\s+(?:law\s+firm\s+)?process\s+serv(?:ing|ice)\b"
+            r"|\battorney\s+process\s+serv(?:ing|ice)\b"
+            r"|\blegal\s+team\s+process\s+serv(?:ing|ice)\b"
+            r"|\bparalegal\s+process\s+serv(?:ing|ice)\b"
+            r"|\blaw\s+firm\s+service\s+of\s+process\b"
+            r"|\bservice\s+of\s+process\s+(?:for\s+)?(?:law\s+firms?|attorneys?|paralegals?)\b"
         ),
-        "target_url": "https://www.workist.com/en/order-management-software/",
+        "target_url": "https://www.proofserve.com/for-law-firms",
     },
 
     # --------------------------------------------------
-    # DOCUMENT MANAGEMENT
+    # FOR COLLECTION AGENCIES
     # --------------------------------------------------
     {
-        "kw": "document management software",
+        "kw": "collection agency process service",
         "pattern": (
-            r"\bdocument\s+management\b"
-            r"|\bdocument\s+management\s+software\b"
-            r"|\belectronic\s+document\s+management\b"
-            r"|\belectronic\s+document\s+management\s+software\b"
-            r"|\bdigital\s+document\s+management\b"
-            r"|\bdigital\s+document\s+management\s+software\b"
+            r"\bcollection\s+agenc(?:y|ies)\s+process\s+serv(?:ing|ice)\b"
+            r"|\bprocess\s+serv(?:ing|ice)\s+(?:for\s+)?collection\s+(?:agencies|firms?|companies)\b"
+            r"|\bbulk\s+(?:document\s+)?(?:upload|serv(?:ing|ice))\b"
+            r"|\bbulk\s+process\s+serv(?:ing|ice)\b"
+            r"|\bbulk\s+serve\b"
+            r"|\bsalesforce\s+(?:process\s+serv(?:ing|ice)\s+)?integration\b"
+            r"|\bfilevine\s+integration\b"
+            r"|\bdebt\s+collection\s+(?:process\s+)?serv(?:ing|ice)\b"
+            r"|\bhigh.volume\s+(?:process\s+)?serv(?:ing|ice)\b"
+            r"|\bserve.first\s+states?\b"
+            r"|\bcollections?\s+(?:law\s+firm\s+)?service\s+of\s+process\b"
         ),
-        "target_url": "https://www.workist.com/en/document-management-software/",
+        "target_url": "https://www.proofserve.com/for-collections-agencies",
     },
 
     # --------------------------------------------------
-    # OCR
+    # FOR GOVERNMENT
     # --------------------------------------------------
     {
-        "kw": "ai ocr",
+        "kw": "government process service",
         "pattern": (
-            r"\bai\s+based\s+ocr\s+solution\b"
-            r"|\bai\s+ocr\b"
-            r"|\bocr\b"
-            r"|\bocr\s+software\b"
-            r"|\boptical\s+character\s+recognition\b"
+            r"\bgovernment\s+process\s+serv(?:ing|ice)\b"
+            r"|\bprocess\s+serv(?:ing|ice)\s+(?:for\s+)?government\b"
+            r"|\bgovernment\s+(?:agency\s+)?(?:document\s+)?serv(?:ing|ice)\b"
+            r"|\bpublic\s+agency\s+process\s+serv(?:ing|ice)\b"
+            r"|\bmunicipal\s+process\s+serv(?:ing|ice)\b"
         ),
-        "target_url": "https://www.workist.com/en/ai-ocr-software/",
+        "target_url": "https://www.proofserve.com/for-government",
+    },
+
+    # --------------------------------------------------
+    # FOR PROCESS SERVING COMPANIES
+    # --------------------------------------------------
+    {
+        "kw": "process serving companies",
+        "pattern": (
+            r"\bprocess\s+serving\s+compan(?:y|ies)\b"
+            r"|\boutsource\s+(?:nationwide\s+)?(?:process\s+)?serv(?:ing|ice)\b"
+            r"|\bexpand\s+(?:to\s+)?all\s+50\s+states\b"
+            r"|\bnationwide\s+(?:process\s+serving\s+)?network\b"
+            r"|\bexpedited\s+(?:process\s+)?serv(?:ing|ice)\b"
+            r"|\bsame.day\s+(?:process\s+)?serv(?:ing|ice)\b"
+            r"|\bprocess\s+serving\s+network\b"
+        ),
+        "target_url": "https://www.proofserve.com/for-process-serving-companies",
+    },
+
+    # --------------------------------------------------
+    # FOR PROPERTY MANAGEMENT
+    # --------------------------------------------------
+    {
+        "kw": "process serving property management",
+        "pattern": (
+            r"\bprocess\s+serv(?:ing|ice)\s+(?:for\s+)?property\s+management\b"
+            r"|\bproperty\s+management\s+process\s+serv(?:ing|ice)\b"
+            r"|\btenant\s+notice(?:s)?\b"
+            r"|\beviction\s+(?:notice|serv(?:ing|ice)|process)\b"
+            r"|\beviction\s+papers?\b"
+            r"|\boccupancy\s+check(?:s)?\b"
+            r"|\bviolation\s+notice(?:s)?\b"
+            r"|\blandlord\s+(?:process\s+)?serv(?:ing|ice)\b"
+            r"|\bproperty\s+manager\s+(?:process\s+)?serv(?:ing|ice)\b"
+            r"|\bserv(?:ing|e)\s+eviction\s+(?:papers?|notices?)\b"
+        ),
+        "target_url": "https://www.proofserve.com/property-management",
+    },
+
+    # --------------------------------------------------
+    # FOR SERVERS / PROCESS SERVER JOBS
+    # --------------------------------------------------
+    {
+        "kw": "process server jobs",
+        "pattern": (
+            r"\bprocess\s+server\s+jobs?\b"
+            r"|\bprocess\s+serving\s+jobs?\b"
+            r"|\bjoin\s+(?:proof(?:serve)?(?:\'s)?\s+)?(?:server\s+)?network\b"
+            r"|\bearn(?:ing)?\s+(?:as\s+a\s+)?process\s+server\b"
+            r"|\bget\s+paid\s+(?:as\s+a\s+)?(?:process\s+)?server\b"
+            r"|\bprocess\s+server\s+(?:app|mobile\s+app)\b"
+            r"|\bwork\s+as\s+a\s+process\s+server\b"
+            r"|\bprocess\s+server\s+income\b"
+            r"|\bprocess\s+server\s+pay\b"
+            r"|\bhow\s+much\s+do\s+process\s+servers\s+make\b"
+            r"|\bindependent\s+contractor\s+process\s+server\b"
+            r"|\bgig\s+(?:work\s+)?process\s+serv(?:ing|er)\b"
+        ),
+        "target_url": "https://www.proofserve.com/for-servers",
+    },
+
+    # --------------------------------------------------
+    # BECOME A PROCESS SERVER
+    # --------------------------------------------------
+    {
+        "kw": "become a process server",
+        "pattern": (
+            r"\bhow\s+to\s+become\s+a\s+process\s+server\b"
+            r"|\bbecoming\s+a\s+process\s+server\b"
+            r"|\bprocess\s+server\s+requirements?\b"
+            r"|\bprocess\s+server\s+certification\b"
+            r"|\bprocess\s+server\s+license\b"
+            r"|\bprocess\s+server\s+training\b"
+            r"|\bprocess\s+server\s+sign\s*up\b"
+            r"|\bstart(?:ing)?\s+(?:a\s+)?process\s+serving\s+(?:career|business)\b"
+        ),
+        "target_url": "https://www.proofserve.com/become-a-process-server",
+    },
+
+    # --------------------------------------------------
+    # FOR LAW ENFORCEMENT
+    # --------------------------------------------------
+    {
+        "kw": "process server police",
+        "pattern": (
+            r"\bprocess\s+server\s+(?:police|officer|sheriff|law\s+enforcement)\b"
+            r"|\boff.duty\s+(?:police|officer|sheriff)\b"
+            r"|\blaw\s+enforcement\s+(?:process\s+)?serv(?:ing|ice)\b"
+            r"|\bpolice\s+officer\s+(?:extra\s+)?income\b"
+            r"|\bsheriff\s+(?:process\s+)?serv(?:ing|ice)\b"
+            r"|\bdeputy\s+(?:process\s+)?serv(?:ing|er)\b"
+        ),
+        "target_url": "https://www.proofserve.com/for-law-enforcement",
+    },
+
+    # --------------------------------------------------
+    # SERVICE OF PROCESS (generic — how-it-works)
+    # --------------------------------------------------
+    {
+        "kw": "service of process",
+        "pattern": (
+            r"\bservice\s+of\s+process\b"
+            r"|\bserv(?:ing|e)\s+process\b"
+            r"|\bprocess\s+serv(?:ing|er|ice|ed)\b"
+            r"|\blegal\s+service\s+(?:of\s+process\s+)?platform\b"
+            r"|\bdocument\s+serv(?:ing|ice)\b"
+            r"|\bserve\s+legal\s+documents?\b"
+            r"|\bserve\s+court\s+documents?\b"
+        ),
+        "target_url": "https://www.proofserve.com/how-it-works",
     },
 
     # --------------------------------------------------
@@ -140,8 +287,8 @@ COMMERCIAL_ANCHOR_RULES = [
     # --------------------------------------------------
     {
         "kw": "brand",
-        "pattern": r"^\s*workist(?:®|™)?(?:\.com)?\s*$",
-        "target_url": "https://www.workist.com/",
+        "pattern": r"^\s*proof(?:serve)?(?:®|™)?(?:\.com)?\s*$",
+        "target_url": "https://www.proofserve.com/",
     },
 ]
 
@@ -207,6 +354,10 @@ def is_blog_url(url: str) -> bool:
         or path.startswith("/blog/")
         or path == "/en/blog"
         or path.startswith("/en/blog/")
+        or path == "/learn"               # ← ProofServe
+        or path.startswith("/learn/")     # ← ProofServe
+        or path == "/en/learn"            # ← ProofServe EN
+        or path.startswith("/en/learn/")  # ← ProofServe EN
     )
 
 
@@ -287,12 +438,29 @@ def is_strong_match(anchor: str, keyword: str) -> bool:
 # -------------------------------------------------------------------
 # Tab 3: Anchor Text Optimization
 # -------------------------------------------------------------------
+_SITEWIDE_ANCHOR_TEXTS = {
+    "home", "about", "contact", "careers", "pricing", "sitemap",
+    "privacy policy", "terms & conditions", "terms of service",
+    "blog", "press", "events", "status", "api docs", "help center",
+    "associations", "request a demo", "facebook", "twitter", "linkedin",
+    "previous article", "next article",
+    "how it works", "overview", "service areas", "become a server",
+    "for law firms", "for collections agencies", "for individuals",
+    "for government", "for process serving companies", "for servers",
+    "for partners", "our commitment to integrity",
+}
+
+
+def _is_sitewide_link(anchor: str, source_url: str, links_df: pd.DataFrame,
+                     min_repeats: int = 30) -> bool:
+    """A link is sitewide if its (anchor, dest) appears on >=min_repeats pages."""
+    return False  # populated by the pre-pass below
 
 def build_anchor_optimization_report(
     raw_links_list: List[Dict],
     audited_df: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Commercial anchor -> commercial destination (ONLY when currently linking to a blog URL)."""
+    """..."""
     links_df = pd.DataFrame(raw_links_list)
     if links_df.empty:
         return pd.DataFrame()
@@ -304,6 +472,40 @@ def build_anchor_optimization_report(
     links_df["source"] = links_df["source"].fillna("").astype(str)
     links_df["dest"] = links_df["dest"].fillna("").astype(str)
     links_df["anchor"] = links_df["anchor"].fillna("").astype(str)
+
+    # ------------------------------------------------------------------
+    # Pre-filter: drop footer/nav/sitewide links before analysis.
+    # A link is sitewide if either:
+    #   (a) its anchor text is in the known sitewide set, OR
+    #   (b) the (anchor, dest) pair repeats across >=30 source pages
+    #       (the proofserve footer has ~40 links repeating on every page).
+    # ------------------------------------------------------------------
+    pair_counts = (
+        links_df.groupby(["anchor", "dest"])["source"]
+        .nunique()
+        .rename("source_pages")
+        .reset_index()
+    )
+    repeated_pairs = set(
+        zip(
+            pair_counts.loc[pair_counts["source_pages"] >= 30, "anchor"],
+            pair_counts.loc[pair_counts["source_pages"] >= 30, "dest"],
+        )
+    )
+
+    anchor_lc = links_df["anchor"].str.strip().str.lower()
+    is_sitewide_anchor = anchor_lc.isin(_SITEWIDE_ANCHOR_TEXTS)
+    is_repeated_pair = list(zip(links_df["anchor"], links_df["dest"]))
+    is_repeated_mask = pd.Series(
+        [pair in repeated_pairs for pair in is_repeated_pair],
+        index=links_df.index,
+    )
+
+    before = len(links_df)
+    links_df = links_df.loc[~(is_sitewide_anchor | is_repeated_mask)].copy()
+    after = len(links_df)
+    # Optional debug:
+    # print(f"Footer/nav filter dropped {before - after} of {before} links")
 
     rows: List[Dict[str, Any]] = []
 
@@ -321,7 +523,9 @@ def build_anchor_optimization_report(
         if is_article_title_like_anchor(anchor):
             continue
 
-        if not is_blog_url(dst):
+        dst_is_blog = is_blog_url(dst)
+        dst_is_home = is_homepage_url(dst)
+        if not dst_is_blog and not dst_is_home:
             continue
 
         anchor_lc = norm(anchor)
@@ -384,15 +588,15 @@ def build_page_summary_report(
     }).fillna("No major internal linking issues detected")
 
     report["after"] = "No change required"
-
     if opportunities_df is not None and not opportunities_df.empty:
-        affected_targets = set(opportunities_df["target_url"])
-        report.loc[
-            report["url"].isin(affected_targets),
-            "after"
-        ] = (
-            "Adding new internal links from relevant blog content will strengthen internal discoverability and support priority pages"
-        )
+        if "target_url" in opportunities_df.columns:
+            affected_targets = set(opportunities_df["target_url"])
+            report.loc[
+                report["url"].isin(affected_targets),
+                "after"
+            ] = (
+                "Adding new internal links from relevant blog content will strengthen internal discoverability and support priority pages"
+            )
 
     if anchor_optimization_df is not None and not anchor_optimization_df.empty:
         affected_pages = set(anchor_optimization_df["page_to_edit"])
@@ -429,16 +633,15 @@ def build_actionable_opportunities(
     audited_df: pd.DataFrame,
 ) -> pd.DataFrame:
 
-    if opportunities is None or opportunities.empty:
+    if opportunities is None or opportunities.empty or "target_url" not in opportunities.columns:
         return pd.DataFrame()
 
     opp_df = opportunities.copy()
 
-    priority_map = (
-        audited_df[["url", "priority_tier"]]
-        .set_index("url")["priority_tier"]
-        .to_dict()
-    )
+    priority_map = {
+        str(u).strip().rstrip("/"): t
+        for u, t in zip(audited_df["url"], audited_df["priority_tier"])
+    }
 
     opp_df["target_priority"] = opp_df["target_url"].map(priority_map)
 
