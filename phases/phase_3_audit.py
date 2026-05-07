@@ -14,6 +14,13 @@ GENERIC_ANCHORS = {
     "learn more",
     "more",
     "here",
+    # German
+    "hier",
+    "hier klicken",
+    "mehr",
+    "mehr erfahren",
+    "weiterlesen",
+    "weiter lesen",
 }
 
 

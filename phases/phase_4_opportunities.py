@@ -1,23 +1,21 @@
+# phases/phase_4_opportunities.py
+
 import re
 from urllib.parse import urlparse
-from typing import Set, Tuple, Optional, List, Dict, Any
+from typing import Set, Tuple, Optional, List, Dict, Any, Callable
 
 import pandas as pd
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
 
-# ------------------------------------------------
+# --------------------------------------------------
 # Config
 # --------------------------------------------------
 
 MIN_SENTENCE_WORDS = 6
-PAGE_SIMILARITY_FLOOR = 0.35   # was 0.35; lowered after observing real
-                                # blog->commercial pairs scored 0.30-0.34
-                                # on legitimate matches with MiniLM.
-SENTENCE_SIMILARITY_FLOOR = 0.5
-
-TIER_LINK_CAP = {"A": 8, "B": 4, "C": 2}
+PAGE_SIMILARITY_FLOOR = 0.6      # blog→target page-level cosine threshold
+SENTENCE_SIMILARITY_FLOOR = 0.72   # individual sentence cosine threshold
 
 
 # --------------------------------------------------
@@ -46,9 +44,29 @@ def first_existing_column(df: pd.DataFrame, candidates: Tuple[str, ...]) -> str:
 
 
 def normalize_url(u: Any) -> str:
+    """
+    Normalize a URL for equality comparison:
+      - lowercase scheme + host (path stays case-sensitive)
+      - drop query and fragment
+      - strip trailing slash
+    Matches phase_5_reporting.normalize_url_no_query for cross-phase consistency.
+    """
     if not isinstance(u, str):
         u = "" if pd.isna(u) else str(u)
-    return u.strip().rstrip("/")
+    u = u.strip()
+    if not u:
+        return ""
+    try:
+        p = urlparse(u)
+        normalized = p._replace(
+            scheme=p.scheme.lower(),
+            netloc=p.netloc.lower(),
+            query="",
+            fragment="",
+        ).geturl()
+        return normalized.rstrip("/")
+    except Exception:
+        return u.rstrip("/")
 
 
 def split_into_sentences(text: Any) -> List[str]:
@@ -58,29 +76,26 @@ def split_into_sentences(text: Any) -> List[str]:
     return [s.strip() for s in sentences if len(s.split()) >= MIN_SENTENCE_WORDS]
 
 
-def detect_language_from_url(url: str) -> str:
-    try:
-        path = urlparse(url).path.lower()
-    except Exception:
-        path = (url or "").lower()
+def _make_is_homepage(homepage_url: str) -> Callable[[str], bool]:
+    """Compare a URL against the configured homepage, after normalization."""
+    home_norm = normalize_url(homepage_url)
 
-    p = path.strip("/")
+    def is_homepage(url: str) -> bool:
+        return normalize_url(url) == home_norm
 
-    if not p:
-        return "none"
-
-    first = p.split("/", 1)[0]
-
-    if first == "de" or p == "de":
-        return "de"
-    if first == "en" or p == "en":
-        return "en"
-
-    return "none"
+    return is_homepage
 
 
-def is_homepage(url: str) -> bool:
-    return url.rstrip("/").count("/") <= 2
+def _pad_url_for_lang_detect(url: str) -> str:
+    """
+    Ensure the URL ends with '/' so a config pattern like '/de/' can match
+    URLs whose path ends exactly at the language code (e.g. '/de'). After
+    normalize_url we have stripped the trailing slash, so we re-add one
+    here only for the purpose of language detection.
+    """
+    if not isinstance(url, str) or not url:
+        return url or ""
+    return url.rstrip("/") + "/"
 
 
 def is_valid_source_url(url: str) -> bool:
@@ -106,19 +121,11 @@ def is_valid_source_url(url: str) -> bool:
     return True
 
 
-def get_best_anchor(target_row: pd.Series) -> Optional[str]:
-    anchor = str(target_row.get("best_anchor_text", "")).strip()
-    if not anchor or anchor.upper() == "N/A":
-        return None
-    return anchor
-
-
 def build_topic_tokens(target_row: pd.Series) -> List[str]:
     text = " ".join([
         str(target_row.get("title", "")),
         str(target_row.get("h1", "")),
         str(target_row.get("meta_description", "")),
-        str(target_row.get("best_anchor_text", "")),
     ]).lower()
 
     return list(set(re.findall(r"[a-z0-9]{4,}", text)))
@@ -147,23 +154,22 @@ def build_target_embeddings(audited_df: pd.DataFrame) -> Dict[str, Any]:
 
 
 # --------------------------------------------------
-# Phase 4 core — DIAGNOSTIC VERSION
+# Phase 4 core
 # --------------------------------------------------
 
 def find_internal_link_opportunities(
     blog_df: pd.DataFrame,
     audited_df: pd.DataFrame,
     existing_links: Set[Tuple[str, str]],
+    client_config: Dict[str, Any],
 ) -> pd.DataFrame:
 
     blog_url_col = first_existing_column(blog_df, ("url", "source_url"))
     blog_content_col = first_existing_column(blog_df, ("content", "text", "body"))
-    traffic_col = next(
-        (c for c in ("non_branded_traffic", "traffic", "sessions") if c in blog_df.columns),
-        None,
-    )
     target_url_col = first_existing_column(audited_df, ("url", "target_url"))
     tier_col = first_existing_column(audited_df, ("priority_tier", "tier"))
+    detect_language = client_config["detect_language"]
+    is_homepage = _make_is_homepage(client_config["homepage_url"])
 
     model = get_model()
     opportunities: List[Dict[str, Any]] = []
@@ -178,6 +184,8 @@ def find_internal_link_opportunities(
         if isinstance(row.get(target_url_col), str) or not pd.isna(row.get(target_url_col))
     }
 
+    # Kept for output enrichment: each opportunity gets the target's tier
+    # so downstream consumers (Phase 5, manual review) can sort/filter on it.
     tier_map = {
         normalize_url(row[target_url_col]): str(row[tier_col]).strip().upper()
         for _, row in audited_df.iterrows()
@@ -189,14 +197,12 @@ def find_internal_link_opportunities(
         if target_row is None:
             continue
 
-        best_anchor = get_best_anchor(target_row)
-        if not best_anchor:
-            continue
-
         if is_homepage(target_url):
             continue
-
-        target_lang = detect_language_from_url(target_url)
+        # Use the original (un-normalized) URL for language detection so
+        # config patterns like "/de/" still match URLs that ended at "/de/".
+        target_url_raw = str(target_row[target_url_col])
+        target_lang = detect_language(_pad_url_for_lang_detect(target_url_raw))
         topic_tokens = build_topic_tokens(target_row)
 
         for _, blog in blog_df.iterrows():
@@ -209,20 +215,14 @@ def find_internal_link_opportunities(
             if source_url == target_url or (source_url, target_url) in existing_links:
                 continue
 
-            source_lang = detect_language_from_url(source_url)
+            source_url_raw = str(blog[blog_url_col])
+            source_lang = detect_language(_pad_url_for_lang_detect(source_url_raw))
             if source_lang != target_lang:
-                if not (source_lang == "none" and target_lang == "en"):
-                    continue
+                continue
 
             content = str(blog[blog_content_col])
             if not content or content.lower() == "nan":
                 continue
-
-            source_traffic = (
-                int(blog[traffic_col])
-                if traffic_col and not pd.isna(blog[traffic_col])
-                else 0
-            )
 
             sentences = split_into_sentences(content)
             if not sentences:
@@ -246,7 +246,7 @@ def find_internal_link_opportunities(
                     sentence_embedding_cache[sentence] = model.encode(sentence)
 
                 sim = cosine_similarity(
-                [sentence_embedding_cache[sentence]],
+                    [sentence_embedding_cache[sentence]],
                     [target_vector],
                 )[0][0]
 
@@ -264,33 +264,20 @@ def find_internal_link_opportunities(
             opportunities.append({
                 "source_url": source_url,
                 "target_url": target_url,
-                "suggested_anchor": best_anchor,
-                "source_non_branded_traffic": source_traffic,
+                "target_priority_tier": tier_map.get(target_url, ""),
                 "confidence": round(best_score, 3),
             })
 
     out = pd.DataFrame(opportunities)
-
     if out.empty:
         return out
 
-    out["_tier"] = out["target_url"].map(tier_map).fillna("C")
-
     out = out.sort_values(
-        by=["target_url", "confidence", "source_non_branded_traffic"],
-        ascending=[True, False, False],
+        by=["target_url", "confidence"],
+        ascending=[True, False],
     )
 
-    out = (
-        out.groupby("target_url", group_keys=False)
-        .apply(lambda g: g.head(TIER_LINK_CAP.get(g["_tier"].iloc[0], 2)))
-        .reset_index(drop=True)
-    )
-
-    out = out.drop(columns=["_tier"])
-
-    return out
-
+    return out.reset_index(drop=True)
 
 
 # --------------------------------------------------
@@ -301,6 +288,7 @@ def run_phase_4_opportunities(*args, **kwargs) -> pd.DataFrame:
     blog_df = kwargs.get("blog_df")
     audited_df = kwargs.get("audited_df") or kwargs.get("meta_df")
     raw_links_list = kwargs.get("raw_links_list")
+    client_config = kwargs.get("client_config")
 
     if blog_df is None and len(args) > 0:
         blog_df = args[0]
@@ -308,11 +296,13 @@ def run_phase_4_opportunities(*args, **kwargs) -> pd.DataFrame:
         audited_df = args[1]
     if raw_links_list is None and len(args) > 2:
         raw_links_list = args[2]
+    if client_config is None and len(args) > 3:
+        client_config = args[3]
 
-    if blog_df is None or audited_df is None or raw_links_list is None:
-        raise ValueError("Missing required inputs.")
-
-    assert "best_anchor_text" in audited_df.columns, "Missing best_anchor_text column"
+    if blog_df is None or audited_df is None or raw_links_list is None or client_config is None:
+        raise ValueError(
+            "Missing required inputs (blog_df, audited_df, raw_links_list, client_config)."
+        )
 
     existing_links: Set[Tuple[str, str]] = set()
     for link in raw_links_list:
@@ -325,4 +315,5 @@ def run_phase_4_opportunities(*args, **kwargs) -> pd.DataFrame:
         blog_df=blog_df,
         audited_df=audited_df,
         existing_links=existing_links,
+        client_config=client_config,
     )

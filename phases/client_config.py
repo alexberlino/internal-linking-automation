@@ -179,13 +179,23 @@ def load_client_config(config_dir: Union[str, Path]) -> Dict[str, Any]:
                     )
                 rule_lang = lang_val
 
-        phrases = [p.strip() for p in keywords_raw.split("|") if p.strip()]
-        regex_parts = [r for r in (_phrase_to_regex(p) for p in phrases) if r]
-        if not regex_parts:
-            continue
-
-        # Validate the compiled pattern early so bad regex fails fast
-        combined_pattern = "|".join(regex_parts)
+        # If the cell starts with "regex:", treat the entire remainder as one
+        # raw regex (it may legitimately contain | for alternation, so we don't
+        # split on |).
+        # Otherwise, split on | for synonyms and convert each plain phrase
+        # into a word-boundary regex.
+        keywords_stripped = keywords_raw.strip()
+        if keywords_stripped.lower().startswith("regex:"):
+            raw = keywords_stripped[6:].strip()
+            if not raw:
+                continue
+            combined_pattern = raw
+        else:
+            phrases = [p.strip() for p in keywords_stripped.split("|") if p.strip()]
+            regex_parts = [r for r in (_phrase_to_regex(p) for p in phrases) if r]
+            if not regex_parts:
+                continue
+            combined_pattern = "|".join(regex_parts)
         try:
             re.compile(combined_pattern, flags=re.IGNORECASE)
         except re.error as e:
