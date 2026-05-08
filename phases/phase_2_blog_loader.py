@@ -50,6 +50,9 @@ def load_blog_content(
     # Clean core fields
     df["url"] = df["url"].astype(str).str.strip()
     df["content"] = df["content"].fillna("").astype(str)
+    df["content"] = df["content"].str.replace(
+        r"Previous\s*article\s*Next\s*article", " ", regex=True
+    )
 
     # Optional numeric cleanup
     if "non_branded_traffic" in df.columns:

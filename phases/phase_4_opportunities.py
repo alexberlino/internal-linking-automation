@@ -14,8 +14,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 # --------------------------------------------------
 
 MIN_SENTENCE_WORDS = 6
-PAGE_SIMILARITY_FLOOR = 0.6      # blog→target page-level cosine threshold
-SENTENCE_SIMILARITY_FLOOR = 0.72   # individual sentence cosine threshold
+PAGE_SIMILARITY_FLOOR = 0.5      # blog→target page-level cosine threshold
+SENTENCE_SIMILARITY_FLOOR = 0.65   # individual sentence cosine threshold
 
 
 # --------------------------------------------------
