@@ -14,8 +14,12 @@ from sklearn.metrics.pairwise import cosine_similarity
 # --------------------------------------------------
 
 MIN_SENTENCE_WORDS = 6
-PAGE_SIMILARITY_FLOOR = 0.5      # blog→target page-level cosine threshold
-SENTENCE_SIMILARITY_FLOOR = 0.65   # individual sentence cosine threshold
+# PAGE_SIMILARITY_FLOOR and SENTENCE_SIMILARITY_FLOOR are now read from
+# client_config["similarity"] at runtime. These fallback constants are only
+# used if find_internal_link_opportunities is called without a client_config
+# that contains a "similarity" block (e.g. in unit tests).
+_DEFAULT_PAGE_SIMILARITY_FLOOR = 0.5
+_DEFAULT_SENTENCE_SIMILARITY_FLOOR = 0.65
 
 
 # --------------------------------------------------
@@ -106,15 +110,12 @@ def is_valid_source_url(url: str) -> bool:
     path = parsed.path.lower()
     query = parsed.query.lower()
 
-    # exclude index/root
     if path in {"", "/"}:
         return False
 
-    # exclude category, tag, author, pagination
     if "/category/" in path or "/tag/" in path or "/author/" in path:
         return False
 
-    # exclude query strings
     if query:
         return False
 
@@ -122,13 +123,67 @@ def is_valid_source_url(url: str) -> bool:
 
 
 def build_topic_tokens(target_row: pd.Series) -> List[str]:
+    """
+    Build a vocabulary of content tokens for a target page.
+
+    Sources (in priority order):
+      1. The target's pipe-separated keyword list (rules.csv / targets CSV) —
+         most reliable signal since these are the exact phrases we want anchors
+         drawn from.
+      2. title, h1, meta_description — fallback when keyword list is absent.
+
+    All tokens are lowercased and deduplicated. Tokens shorter than 4 chars
+    are excluded to avoid matching stopwords and prepositions.
+    """
+    tokens: set = set()
+
+    # 1. Keyword list — split on pipe, then tokenise each phrase
+    raw_keywords = target_row.get("keywords", "") or target_row.get("raw_keywords", "")
+    if isinstance(raw_keywords, str) and raw_keywords.strip():
+        for phrase in raw_keywords.split("|"):
+            for tok in re.findall(r"[a-z0-9]{4,}", phrase.lower()):
+                tokens.add(tok)
+
+    # 2. Title / h1 / meta fallback
     text = " ".join([
         str(target_row.get("title", "")),
         str(target_row.get("h1", "")),
         str(target_row.get("meta_description", "")),
     ]).lower()
+    for tok in re.findall(r"[a-z0-9]{4,}", text):
+        tokens.add(tok)
 
-    return list(set(re.findall(r"[a-z0-9]{4,}", text)))
+    return list(tokens)
+
+
+# --------------------------------------------------
+# Volume cap helpers
+# --------------------------------------------------
+
+def _max_suggestions_for_target(
+    current_inbound: int,
+    inbound_link_caps: list,
+) -> int:
+    """
+    Return the maximum number of new link suggestions allowed for a target
+    page based on how many inbound links it already has.
+
+    The caps list is ordered from most-deprived to best-linked:
+      [{"min_inbound": 0,  "max_inbound": 0,    "max_suggestions": 10},
+       {"min_inbound": 1,  "max_inbound": 5,    "max_suggestions": 7},
+       {"min_inbound": 6,  "max_inbound": 15,   "max_suggestions": 5},
+       {"min_inbound": 16, "max_inbound": 39,   "max_suggestions": 2},
+       {"min_inbound": 40, "max_inbound": None, "max_suggestions": 0}]
+
+    Pages at 40+ inbound links get 0 new suggestions — they are well-linked
+    enough that additional suggestions add no meaningful value.
+    """
+    for band in inbound_link_caps:
+        min_ib = band.get("min_inbound", 0)
+        max_ib = band.get("max_inbound")  # None means no upper bound
+        if current_inbound >= min_ib and (max_ib is None or current_inbound <= max_ib):
+            return int(band.get("max_suggestions", 0))
+    return 0
 
 
 # --------------------------------------------------
@@ -171,6 +226,37 @@ def find_internal_link_opportunities(
     detect_language = client_config["detect_language"]
     is_homepage = _make_is_homepage(client_config["homepage_url"])
 
+    # Read similarity floors from config; fall back to module-level defaults
+    # so existing call sites without a "similarity" block keep working.
+    similarity_cfg = client_config.get("similarity", {})
+    page_similarity_floor = float(
+        similarity_cfg.get("page_similarity_floor", _DEFAULT_PAGE_SIMILARITY_FLOOR)
+    )
+    sentence_similarity_floor = float(
+        similarity_cfg.get("sentence_similarity_floor", _DEFAULT_SENTENCE_SIMILARITY_FLOOR)
+    )
+
+    # Volume caps
+    volume_cfg = client_config.get("volume", {})
+    max_targets_per_source = int(volume_cfg.get("max_targets_per_source", 5))
+    inbound_link_caps = volume_cfg.get("inbound_link_caps", [
+        {"min_inbound": 0,  "max_inbound": 0,    "max_suggestions": 10},
+        {"min_inbound": 1,  "max_inbound": 5,    "max_suggestions": 7},
+        {"min_inbound": 6,  "max_inbound": 15,   "max_suggestions": 5},
+        {"min_inbound": 16, "max_inbound": 39,   "max_suggestions": 2},
+        {"min_inbound": 40, "max_inbound": None, "max_suggestions": 0},
+    ])
+
+    # Pre-build inbound link count map from audited_df
+    inbound_count_map: Dict[str, int] = {}
+    for _, row in audited_df.iterrows():
+        url_key = normalize_url(row.get(target_url_col, ""))
+        if url_key:
+            inbound_count_map[url_key] = int(row.get("receiving_links", 0))
+
+    # Track how many suggestions have already been made per target
+    suggestions_per_target: Dict[str, int] = {}
+
     model = get_model()
     opportunities: List[Dict[str, Any]] = []
     page_embedding_cache: Dict[str, Any] = {}
@@ -184,8 +270,6 @@ def find_internal_link_opportunities(
         if isinstance(row.get(target_url_col), str) or not pd.isna(row.get(target_url_col))
     }
 
-    # Kept for output enrichment: each opportunity gets the target's tier
-    # so downstream consumers (Phase 5, manual review) can sort/filter on it.
     tier_map = {
         normalize_url(row[target_url_col]): str(row[tier_col]).strip().upper()
         for _, row in audited_df.iterrows()
@@ -199,8 +283,7 @@ def find_internal_link_opportunities(
 
         if is_homepage(target_url):
             continue
-        # Use the original (un-normalized) URL for language detection so
-        # config patterns like "/de/" still match URLs that ended at "/de/".
+
         target_url_raw = str(target_row[target_url_col])
         target_lang = detect_language(_pad_url_for_lang_detect(target_url_raw))
         topic_tokens = build_topic_tokens(target_row)
@@ -236,10 +319,11 @@ def find_internal_link_opportunities(
                 [target_vector],
             )[0][0]
 
-            if page_sim < PAGE_SIMILARITY_FLOOR:
+            if page_sim < page_similarity_floor:
                 continue
 
             best_score = 0.0
+            best_sentence = ""
 
             for sentence in sentences:
                 if sentence not in sentence_embedding_cache:
@@ -250,15 +334,24 @@ def find_internal_link_opportunities(
                     [target_vector],
                 )[0][0]
 
-                if sim >= SENTENCE_SIMILARITY_FLOOR:
+                if sim >= sentence_similarity_floor:
                     sentence_lc = sentence.lower()
                     sentence_tokens = set(re.findall(r"[a-z0-9]{4,}", sentence_lc))
                     token_overlap = len(sentence_tokens.intersection(set(topic_tokens)))
                     if token_overlap < 1:
                         continue
-                    best_score = max(best_score, sim)
+                    if sim > best_score:
+                        best_score = sim
+                        best_sentence = sentence
 
             if best_score == 0.0:
+                continue
+
+            # Inbound link cap: skip if target already has enough suggestions
+            current_inbound = inbound_count_map.get(target_url, 0)
+            allowed = _max_suggestions_for_target(current_inbound, inbound_link_caps)
+            already_suggested = suggestions_per_target.get(target_url, 0)
+            if allowed == 0 or already_suggested >= allowed:
                 continue
 
             opportunities.append({
@@ -266,11 +359,21 @@ def find_internal_link_opportunities(
                 "target_url": target_url,
                 "target_priority_tier": tier_map.get(target_url, ""),
                 "confidence": round(best_score, 3),
+                "matched_sentence": best_sentence,
             })
+            suggestions_per_target[target_url] = already_suggested + 1
 
     out = pd.DataFrame(opportunities)
     if out.empty:
         return out
+
+    # Cap: each source can suggest links to at most max_targets_per_source targets.
+    # Within each source, keep the highest-confidence suggestions.
+    out = (
+        out.sort_values("confidence", ascending=False)
+        .groupby("source_url", group_keys=False)
+        .head(max_targets_per_source)
+    )
 
     out = out.sort_values(
         by=["target_url", "confidence"],
